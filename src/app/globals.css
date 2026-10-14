@@ -1,26 +1,168 @@
 @import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --indigo-deep: #19182B;
+  --indigo-surface: #222038;
+  --indigo-card: #1E1D33;
+  --indigo-border: #32304F;
+  --turmeric: #F5C542;
+  --turmeric-dark: #D4A325;
+  --turmeric-light: #FCE8A1;
+  --warm-paper: #FFF8E8;
+  --maroon: #7D263D;
+  --maroon-light: #9B334E;
+  --coral: #F16F59;
+  --leaf-green: #438567;
+  --leaf-green-light: #52A37E;
+  --muted-grey: #A5A2AD;
+  --text-primary: #FFF8E8;
+  --text-secondary: #C5C2CE;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--indigo-deep);
+  color: var(--text-primary);
+  font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
+  overflow-x: hidden;
+  min-height: 100vh;
+}
+
+h1, h2, h3, h4, .font-display {
+  font-family: var(--font-space), var(--font-inter), sans-serif;
+}
+
+.font-tamil {
+  font-family: var(--font-tamil), var(--font-inter), sans-serif;
+}
+
+/* Subtle Kolam Background Pattern */
+.bg-kolam-pattern {
+  background-image: radial-gradient(circle at 1px 1px, rgba(245, 197, 66, 0.1) 1px, transparent 0);
+  background-size: 24px 24px;
+}
+
+.bg-vintage-dots {
+  background-image: radial-gradient(circle at 1px 1px, rgba(255, 248, 232, 0.08) 1.5px, transparent 0);
+  background-size: 16px 16px;
+}
+
+/* Tamil Nadu Poster Stamp Styles */
+.poster-stamp {
+  border: 2px dashed var(--turmeric);
+  border-radius: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.poster-stamp-green {
+  border: 2px solid var(--leaf-green);
+  background-color: rgba(67, 133, 103, 0.15);
+  color: #79d4a8;
+}
+
+.poster-stamp-coral {
+  border: 2px solid var(--coral);
+  background-color: rgba(241, 111, 89, 0.15);
+  color: #ff9d8c;
+}
+
+/* Radar pulse animation for map pins and intro */
+@keyframes radar-pulse {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+
+.animate-radar-pulse {
+  animation: radar-pulse 2s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
+}
+
+/* Leaflet Overrides */
+.leaflet-container {
+  width: 100%;
+  height: 100%;
+  background-color: #151424 !important;
+  font-family: inherit;
+}
+
+.leaflet-popup-content-wrapper {
+  background-color: #222038 !important;
+  color: #FFF8E8 !important;
+  border-radius: 12px !important;
+  border: 1px solid #32304F !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5) !important;
+  padding: 0 !important;
+  overflow: hidden;
+}
+
+.leaflet-popup-content {
+  margin: 0 !important;
+  line-height: 1.4 !important;
+}
+
+.leaflet-popup-tip {
+  background-color: #222038 !important;
+}
+
+.leaflet-control-zoom a {
+  background-color: #222038 !important;
+  color: #F5C542 !important;
+  border-color: #32304F !important;
+}
+
+.leaflet-control-zoom a:hover {
+  background-color: #32304F !important;
+  color: #FFF8E8 !important;
+}
+
+.leaflet-control-attribution {
+  background-color: rgba(25, 24, 43, 0.85) !important;
+  color: #A5A2AD !important;
+  font-size: 11px !important;
+  border-top-left-radius: 6px;
+  padding: 3px 8px !important;
+}
+
+.leaflet-control-attribution a {
+  color: #F5C542 !important;
+  text-decoration: none;
+}
+
+.leaflet-control-attribution a:hover {
+  text-decoration: underline;
+}
+
+/* Custom Marker CSS styling */
+.custom-map-pin {
+  background: transparent;
+  border: none;
+}
+
+/* Scrollbar customization */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #19182B;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #32304F;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #F5C542;
 }
