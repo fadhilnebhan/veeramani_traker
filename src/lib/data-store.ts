@@ -122,6 +122,7 @@ class MemoryDataStore {
       status: 'pending',
       city: data.district,
       venue_name: data.landmark_name,
+      note: (data as any).note || data.description,
       author_id: userId || 'demo-user-1',
       author_display_name: authorName || data.author_display_name || 'Anonymous Fan',
       created_at: new Date().toISOString(),

@@ -42,7 +42,8 @@ export interface TrackerEntry {
   approved_at?: string | null;
   created_at: string;
   updated_at: string;
-  // Compatibility fields for legacy consumers
+  // Simplified report & compatibility fields
+  note?: string;
   city?: string;
   venue_name?: string;
 }

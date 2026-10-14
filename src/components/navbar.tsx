@@ -16,7 +16,11 @@ import {
   Activity
 } from 'lucide-react';
 
-export function Navbar() {
+interface NavbarProps {
+  onOpenReport?: () => void;
+}
+
+export function Navbar({ onOpenReport }: NavbarProps = {}) {
   const pathname = usePathname();
   const { user, isDemoMode, loginAsDemoRole, signOut } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -135,14 +139,25 @@ export function Navbar() {
           )}
 
           {/* Report / Transmit CTA */}
-          <Link
-            href="/submit"
-            className="flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-gradient-to-r from-[#F5C542] to-[#D4A325] hover:from-[#FCE8A1] hover:to-[#F5C542] text-[#19182B] font-bold text-xs sm:text-sm rounded-xl shadow-[0_2px_12px_rgba(245,197,66,0.3)] transition-all cursor-pointer"
-          >
-            <PlusCircle className="w-4 h-4 text-[#19182B]" />
-            <span className="hidden xs:inline">Report Signal</span>
-            <span className="xs:hidden">Report</span>
-          </Link>
+          {onOpenReport ? (
+            <button
+              onClick={onOpenReport}
+              className="flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-gradient-to-r from-[#F5C542] to-[#D4A325] hover:from-[#FCE8A1] hover:to-[#F5C542] text-[#19182B] font-bold text-xs sm:text-sm rounded-xl shadow-[0_2px_12px_rgba(245,197,66,0.3)] transition-all cursor-pointer"
+            >
+              <PlusCircle className="w-4 h-4 text-[#19182B]" />
+              <span className="hidden xs:inline">Report Signal</span>
+              <span className="xs:hidden">Report</span>
+            </button>
+          ) : (
+            <Link
+              href="/submit"
+              className="flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-gradient-to-r from-[#F5C542] to-[#D4A325] hover:from-[#FCE8A1] hover:to-[#F5C542] text-[#19182B] font-bold text-xs sm:text-sm rounded-xl shadow-[0_2px_12px_rgba(245,197,66,0.3)] transition-all cursor-pointer"
+            >
+              <PlusCircle className="w-4 h-4 text-[#19182B]" />
+              <span className="hidden xs:inline">Report Signal</span>
+              <span className="xs:hidden">Report</span>
+            </Link>
+          )}
 
           {/* Mobile hamburger button */}
           <button
@@ -167,13 +182,25 @@ export function Navbar() {
           >
             Parody Radar Map
           </Link>
-          <Link
-            href="/submit"
-            onClick={() => setMobileMenuOpen(false)}
-            className="block px-3 py-2 rounded-lg text-sm font-semibold text-[#F5C542] bg-[#F5C542]/10 border border-[#F5C542]/20"
-          >
-            + Transmit Parody Signal
-          </Link>
+          {onOpenReport ? (
+            <button
+              onClick={() => {
+                setMobileMenuOpen(false);
+                onOpenReport();
+              }}
+              className="w-full text-left block px-3 py-2 rounded-lg text-sm font-semibold text-[#F5C542] bg-[#F5C542]/10 border border-[#F5C542]/20 cursor-pointer"
+            >
+              + Transmit Parody Signal
+            </button>
+          ) : (
+            <Link
+              href="/submit"
+              onClick={() => setMobileMenuOpen(false)}
+              className="block px-3 py-2 rounded-lg text-sm font-semibold text-[#F5C542] bg-[#F5C542]/10 border border-[#F5C542]/20"
+            >
+              + Transmit Parody Signal
+            </Link>
+          )}
           <Link
             href="/account"
             onClick={() => setMobileMenuOpen(false)}

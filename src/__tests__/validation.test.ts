@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
   trackerSubmissionSchema,
+  simpleReportSchema,
+  getDistrictFromCoords,
   moderationActionSchema,
   containsForbiddenKeywords,
   sanitizeText,
@@ -127,4 +129,113 @@ describe('Parody Tracker Validation & Security Logic', () => {
     expect(clean).not.toContain('<script>');
     expect(clean).toContain('&lt;script&gt;');
   });
+
+  describe('Simplified Reporting Flow (simpleReportSchema & getDistrictFromCoords)', () => {
+    it('accepts a valid simplified report with note and coordinates', () => {
+      const validReport = {
+        note: 'Tea glass clinking rhythm detected near Marina',
+        latitude: 13.0827,
+        longitude: 80.2707,
+        is_fictional_confirmed: true,
+      };
+
+      const result = simpleReportSchema.safeParse(validReport);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.note).toBe('Tea glass clinking rhythm detected near Marina');
+        expect(result.data.latitude).toBe(13.0827);
+        expect(result.data.longitude).toBe(80.2707);
+      }
+    });
+
+    it('rejects an empty note', () => {
+      const emptyNote = {
+        note: '   ',
+        latitude: 13.0827,
+        longitude: 80.2707,
+        is_fictional_confirmed: true,
+      };
+
+      const result = simpleReportSchema.safeParse(emptyNote);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.flatten().fieldErrors.note).toBeDefined();
+      }
+    });
+
+    it('rejects a note shorter than 3 characters', () => {
+      const shortNote = {
+        note: 'Hi',
+        latitude: 13.0827,
+        longitude: 80.2707,
+        is_fictional_confirmed: true,
+      };
+
+      const result = simpleReportSchema.safeParse(shortNote);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.flatten().fieldErrors.note).toBeDefined();
+      }
+    });
+
+    it('rejects a note longer than 280 characters', () => {
+      const longNote = {
+        note: 'A'.repeat(281),
+        latitude: 13.0827,
+        longitude: 80.2707,
+        is_fictional_confirmed: true,
+      };
+
+      const result = simpleReportSchema.safeParse(longNote);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.flatten().fieldErrors.note).toBeDefined();
+      }
+    });
+
+    it('strictly rejects forbidden stalking keywords in the simplified note', () => {
+      const forbiddenReport = {
+        note: 'Spotted entering his private residence apartment',
+        latitude: 13.0827,
+        longitude: 80.2707,
+        is_fictional_confirmed: true,
+      };
+
+      const result = simpleReportSchema.safeParse(forbiddenReport);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.flatten().fieldErrors.note).toBeDefined();
+      }
+    });
+
+    it('rejects coordinates outside Tamil Nadu / South India bounds', () => {
+      const outOfBounds = {
+        note: 'Parody signal ping from New Delhi',
+        latitude: 28.6139,
+        longitude: 77.2090,
+        is_fictional_confirmed: true,
+      };
+
+      const result = simpleReportSchema.safeParse(outOfBounds);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.flatten().fieldErrors.latitude).toBeDefined();
+      }
+    });
+
+    it('correctly maps coordinates to nearest Tamil Nadu district', () => {
+      // Chennai coordinates
+      expect(getDistrictFromCoords(13.0827, 80.2707)).toBe('Chennai');
+
+      // Madurai coordinates
+      expect(getDistrictFromCoords(9.9252, 78.1198)).toBe('Madurai');
+
+      // Coimbatore coordinates
+      expect(getDistrictFromCoords(11.0168, 76.9558)).toBe('Coimbatore');
+
+      // Tiruchirappalli coordinates
+      expect(getDistrictFromCoords(10.7905, 78.7047)).toBe('Tiruchirappalli');
+    });
+  });
 });
+

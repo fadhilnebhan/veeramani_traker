@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { trackerSubmissionSchema, sanitizeText } from '@/lib/validation';
+import { trackerSubmissionSchema, simpleReportSchema, getDistrictFromCoords, sanitizeText } from '@/lib/validation';
 import { dataStore } from '@/lib/data-store';
 import { isSupabaseConfigured, createClient } from '@/lib/supabase/server';
 import { SignalCategory, TrackerFilters } from '@/types';
@@ -118,37 +118,72 @@ export async function POST(request: NextRequest) {
 
     // 2. Parse & Validate
     const body = await request.json();
-    const parseResult = trackerSubmissionSchema.safeParse(body);
+    let sanitizedData: any;
 
-    if (!parseResult.success) {
-      return NextResponse.json(
-        {
-          error: 'Validation failed',
-          details: parseResult.error.flatten().fieldErrors,
-        },
-        { status: 400 }
-      );
+    if (body.note !== undefined && !body.title) {
+      // Simple Report workflow
+      const parseResult = simpleReportSchema.safeParse(body);
+      if (!parseResult.success) {
+        return NextResponse.json(
+          {
+            error: 'Validation failed',
+            details: parseResult.error.flatten().fieldErrors,
+          },
+          { status: 400 }
+        );
+      }
+
+      const validSimple = parseResult.data;
+      const cleanNote = sanitizeText(validSimple.note);
+      const district = validSimple.district || getDistrictFromCoords(validSimple.latitude, validSimple.longitude);
+
+      sanitizedData = {
+        title: cleanNote.length > 50 ? cleanNote.substring(0, 47) + '...' : cleanNote,
+        description: cleanNote,
+        note: cleanNote,
+        category: 'parody_frequency',
+        district: sanitizeText(district),
+        landmark_name: validSimple.landmark_name ? sanitizeText(validSimple.landmark_name) : 'Simulated Signal Sector',
+        latitude: validSimple.latitude,
+        longitude: validSimple.longitude,
+        signal_strength: 88,
+        frequency_mhz: 104.2,
+        is_fictional_confirmed: true,
+        media_path: null,
+        author_display_name: 'Radar Scout',
+      };
+    } else {
+      // Full tracker submission workflow
+      const parseResult = trackerSubmissionSchema.safeParse(body);
+      if (!parseResult.success) {
+        return NextResponse.json(
+          {
+            error: 'Validation failed',
+            details: parseResult.error.flatten().fieldErrors,
+          },
+          { status: 400 }
+        );
+      }
+
+      const validData = parseResult.data;
+      sanitizedData = {
+        title: sanitizeText(validData.title),
+        description: sanitizeText(validData.description),
+        note: sanitizeText(validData.description),
+        category: validData.category,
+        district: sanitizeText(validData.district),
+        landmark_name: sanitizeText(validData.landmark_name),
+        latitude: validData.latitude,
+        longitude: validData.longitude,
+        signal_strength: validData.signal_strength || 85,
+        frequency_mhz: validData.frequency_mhz || 104.2,
+        is_fictional_confirmed: true,
+        media_path: validData.media_path ? sanitizeText(validData.media_path) : null,
+        author_display_name: validData.show_public_attribution && validData.author_display_name
+          ? sanitizeText(validData.author_display_name)
+          : null,
+      };
     }
-
-    const validData = parseResult.data;
-
-    // 3. Sanitize
-    const sanitizedData = {
-      title: sanitizeText(validData.title),
-      description: sanitizeText(validData.description),
-      category: validData.category,
-      district: sanitizeText(validData.district),
-      landmark_name: sanitizeText(validData.landmark_name),
-      latitude: validData.latitude,
-      longitude: validData.longitude,
-      signal_strength: validData.signal_strength || 85,
-      frequency_mhz: validData.frequency_mhz || 104.2,
-      is_fictional_confirmed: true,
-      media_path: validData.media_path ? sanitizeText(validData.media_path) : null,
-      author_display_name: validData.show_public_attribution && validData.author_display_name
-        ? sanitizeText(validData.author_display_name)
-        : null,
-    };
 
     // 4. Persistence
     if (isSupabaseConfigured()) {

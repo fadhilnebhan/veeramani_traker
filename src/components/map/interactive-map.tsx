@@ -173,10 +173,15 @@ export default function InteractiveMap({
                     <span>{entry.landmark_name}, {entry.district}</span>
                   </p>
 
-                  {/* Lore Excerpt */}
-                  <p className="text-xs text-[#C5C2CE] line-clamp-2 leading-relaxed bg-[#151424] p-2 rounded-lg border border-[#32304F] mb-2">
-                    {entry.description}
-                  </p>
+                  {/* Approved Parody Note */}
+                  <div className="bg-[#151424] p-2 rounded-lg border border-[#32304F] mb-2">
+                    <span className="text-[9px] font-mono uppercase tracking-wider text-[#F5C542] block mb-0.5">
+                      Approved Parody Note:
+                    </span>
+                    <p className="text-xs text-[#FFF8E8] italic leading-snug">
+                      &ldquo;{entry.note || entry.description}&rdquo;
+                    </p>
+                  </div>
 
                   {/* Signal Strength & Frequency Readout */}
                   <div className="flex items-center justify-between text-[11px] text-[#A5A2AD] font-mono border-t border-[#32304F] pt-2 mb-2">

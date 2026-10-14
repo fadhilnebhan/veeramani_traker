@@ -8,6 +8,7 @@ import { MapWrapper } from '@/components/map/map-wrapper';
 import { EventCard } from '@/components/event-card';
 import { IntroAnimation } from '@/components/intro-animation';
 import { TrackerEntry, TrackerFilters } from '@/types';
+import { ReportPanel } from '@/components/report-panel';
 import {
   Compass,
   AlertTriangle,
@@ -17,7 +18,6 @@ import {
   Sparkles,
   X
 } from 'lucide-react';
-import Link from 'next/link';
 
 export default function HomePage() {
   const [entries, setEntries] = useState<TrackerEntry[]>([]);
@@ -25,6 +25,7 @@ export default function HomePage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedEntry, setSelectedEntry] = useState<TrackerEntry | null>(null);
   const [viewMode, setViewMode] = useState<'map' | 'list'>('map');
+  const [isReportOpen, setIsReportOpen] = useState(false);
 
   const [filters, setFilters] = useState<TrackerFilters & { city?: string }>({
     search: '',
@@ -80,8 +81,8 @@ export default function HomePage() {
       {/* Branded 2.4s Session Intro Animation */}
       <IntroAnimation />
 
-      {/* Top Navbar */}
-      <Navbar />
+      {/* Top Navbar with quick report modal launcher */}
+      <Navbar onOpenReport={() => setIsReportOpen(true)} />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 flex flex-col gap-4">
         {/* Welcome Tagline & Fictional Disclaimer HUD Header */}
@@ -107,13 +108,13 @@ export default function HomePage() {
             </h1>
           </div>
 
-          <Link
-            href="/submit"
-            className="self-start sm:self-auto flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#222038] hover:bg-[#32304F] border border-[#F5C542]/40 text-[#F5C542] text-xs font-semibold transition-colors shadow-sm"
+          <button
+            onClick={() => setIsReportOpen(true)}
+            className="self-start sm:self-auto flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#222038] hover:bg-[#32304F] border border-[#F5C542]/40 text-[#F5C542] text-xs font-semibold transition-colors shadow-sm cursor-pointer"
           >
             <PlusCircle className="w-3.5 h-3.5" />
             <span>Transmit a Parody Signal</span>
-          </Link>
+          </button>
         </div>
 
         {/* Clear Fictional Disclaimer Banner */}
@@ -252,6 +253,21 @@ export default function HomePage() {
           </div>
         )}
       </main>
+
+      {/* Floating Quick Report Modal */}
+      {isReportOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#151424]/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative w-full max-w-md animate-in zoom-in-95 duration-150">
+            <ReportPanel
+              isFloating={true}
+              onClose={() => setIsReportOpen(false)}
+              onSuccess={() => {
+                fetchEntries();
+              }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Footer */}
       <Footer />
