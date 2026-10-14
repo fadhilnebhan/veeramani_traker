@@ -1,5 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { trackerSubmissionSchema, simpleReportSchema, getDistrictFromCoords, sanitizeText } from '@/lib/validation';
+import {
+  trackerSubmissionSchema,
+  simpleReportSchema,
+  publicAppearanceSubmissionSchema,
+  getDistrictFromCoords,
+  sanitizeText,
+} from '@/lib/validation';
+import { extractSourceUrl, isTrustedSourceUrl, extractCityAndVenue } from '@/lib/trusted-sources';
 import { dataStore } from '@/lib/data-store';
 import { isSupabaseConfigured, createClient } from '@/lib/supabase/server';
 import { SignalCategory, TrackerFilters } from '@/types';
@@ -119,8 +126,67 @@ export async function POST(request: NextRequest) {
     // 2. Parse & Validate
     const body = await request.json();
     let sanitizedData: any;
+    let publishImmediately = false;
 
-    if (body.note !== undefined && !body.title) {
+    if (body.report_text !== undefined) {
+      // New Spidey-Tracker style Public Appearance single-input workflow
+      const parseResult = publicAppearanceSubmissionSchema.safeParse(body);
+      if (!parseResult.success) {
+        return NextResponse.json(
+          {
+            error: parseResult.error.issues[0]?.message || 'Validation failed for public announcement.',
+            details: parseResult.error.flatten().fieldErrors,
+          },
+          { status: 400 }
+        );
+      }
+
+      const valid = parseResult.data;
+      const rawText = valid.report_text;
+      const sourceUrl = extractSourceUrl(rawText);
+
+      if (!sourceUrl || !isTrustedSourceUrl(sourceUrl)) {
+        return NextResponse.json(
+          {
+            error:
+              'A valid public announcement link from a trusted source (e.g. news publication, official organizer, event platform) is required for publication.',
+          },
+          { status: 400 }
+        );
+      }
+
+      const cleanText = sanitizeText(rawText);
+      const extraction = extractCityAndVenue(rawText);
+      publishImmediately = true;
+
+      // Extract a clean headline (up to 60 chars) or use venue + city
+      const textWithoutUrl = rawText.replace(sourceUrl, '').trim();
+      const title = textWithoutUrl.length > 5 && textWithoutUrl.length <= 80
+        ? textWithoutUrl
+        : `${extraction.city} Public Appearance Announcement`;
+
+      sanitizedData = {
+        title: sanitizeText(title),
+        description: cleanText,
+        note: cleanText,
+        category: 'parody_frequency',
+        district: extraction.city,
+        city: extraction.city,
+        landmark_name: extraction.venue,
+        venue_name: extraction.venue,
+        latitude: extraction.coords.lat,
+        longitude: extraction.coords.lng,
+        signal_strength: 95,
+        frequency_mhz: 104.2,
+        is_fictional_confirmed: true,
+        source_url: sourceUrl,
+        media_path: null,
+        status: 'approved',
+        author_display_name: valid.show_public_attribution && valid.author_display_name
+          ? sanitizeText(valid.author_display_name)
+          : null,
+      };
+    } else if (body.note !== undefined && !body.title) {
       // Simple Report workflow
       const parseResult = simpleReportSchema.safeParse(body);
       if (!parseResult.success) {
@@ -136,6 +202,9 @@ export async function POST(request: NextRequest) {
       const validSimple = parseResult.data;
       const cleanNote = sanitizeText(validSimple.note);
       const district = validSimple.district || getDistrictFromCoords(validSimple.latitude, validSimple.longitude);
+      const detectedUrl = extractSourceUrl(cleanNote);
+      const isTrusted = detectedUrl ? isTrustedSourceUrl(detectedUrl) : false;
+      publishImmediately = isTrusted;
 
       sanitizedData = {
         title: cleanNote.length > 50 ? cleanNote.substring(0, 47) + '...' : cleanNote,
@@ -143,14 +212,18 @@ export async function POST(request: NextRequest) {
         note: cleanNote,
         category: 'parody_frequency',
         district: sanitizeText(district),
-        landmark_name: validSimple.landmark_name ? sanitizeText(validSimple.landmark_name) : 'Simulated Signal Sector',
+        city: sanitizeText(district),
+        landmark_name: validSimple.landmark_name ? sanitizeText(validSimple.landmark_name) : 'Public Venue Sector',
+        venue_name: validSimple.landmark_name ? sanitizeText(validSimple.landmark_name) : 'Public Venue Sector',
         latitude: validSimple.latitude,
         longitude: validSimple.longitude,
         signal_strength: 88,
         frequency_mhz: 104.2,
         is_fictional_confirmed: true,
+        source_url: detectedUrl || null,
         media_path: null,
-        author_display_name: 'Radar Scout',
+        status: isTrusted ? 'approved' : 'pending',
+        author_display_name: 'Tracker Scout',
       };
     } else {
       // Full tracker submission workflow
@@ -172,16 +245,20 @@ export async function POST(request: NextRequest) {
         note: sanitizeText(validData.description),
         category: validData.category,
         district: sanitizeText(validData.district),
+        city: sanitizeText(validData.district),
         landmark_name: sanitizeText(validData.landmark_name),
+        venue_name: sanitizeText(validData.landmark_name),
         latitude: validData.latitude,
         longitude: validData.longitude,
         signal_strength: validData.signal_strength || 85,
         frequency_mhz: validData.frequency_mhz || 104.2,
         is_fictional_confirmed: true,
+        source_url: (validData as any).source_url || null,
         media_path: validData.media_path ? sanitizeText(validData.media_path) : null,
         author_display_name: validData.show_public_attribution && validData.author_display_name
           ? sanitizeText(validData.author_display_name)
           : null,
+        status: 'pending',
       };
     }
 
@@ -196,13 +273,17 @@ export async function POST(request: NextRequest) {
           .replace(/[^a-z0-9]+/g, '-')
           .replace(/(^-|-$)+/g, '') + `-${Date.now().toString(36)}`;
 
+        const entryStatus = publishImmediately ? 'approved' : 'pending';
+
         const { data, error } = await supabase
           .from('tracker_entries')
           .insert({
             ...sanitizedData,
             slug,
             author_id: user?.id || null,
-            status: 'pending',
+            status: entryStatus,
+            approved_by: publishImmediately ? 'system-allowlist' : null,
+            approved_at: publishImmediately ? new Date().toISOString() : null,
           })
           .select()
           .single();
@@ -210,9 +291,12 @@ export async function POST(request: NextRequest) {
         if (!error && data) {
           return NextResponse.json(
             {
-              message: 'Parody radar signal submitted successfully! Placed in moderator queue.',
+              message: publishImmediately
+                ? 'Public appearance published immediately to the tracker map!'
+                : 'Signal submitted successfully! Placed in moderator queue.',
               entry: data,
               signal: data,
+              published: publishImmediately,
             },
             { status: 201 }
           );
@@ -231,11 +315,13 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(
       {
-        message: 'Parody radar signal submitted successfully! Review pending.',
+        message: publishImmediately
+          ? 'Public appearance verified & published immediately to the map!'
+          : 'Submission received! Placed in review queue.',
         entry: createdEntry,
         signal: createdEntry,
         event: createdEntry,
-        notice: 'Submitted in Demo Mode. Visible in Account and Moderation queues.',
+        published: publishImmediately,
       },
       { status: 201 }
     );

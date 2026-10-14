@@ -2,11 +2,17 @@ import { describe, it, expect } from 'vitest';
 import {
   trackerSubmissionSchema,
   simpleReportSchema,
+  publicAppearanceSubmissionSchema,
   getDistrictFromCoords,
   moderationActionSchema,
   containsForbiddenKeywords,
   sanitizeText,
 } from '@/lib/validation';
+import {
+  extractSourceUrl,
+  isTrustedSourceUrl,
+  extractCityAndVenue,
+} from '@/lib/trusted-sources';
 
 describe('Parody Tracker Validation & Security Logic', () => {
   it('accepts a valid parody signal submission', () => {
@@ -235,6 +241,74 @@ describe('Parody Tracker Validation & Security Logic', () => {
 
       // Tiruchirappalli coordinates
       expect(getDistrictFromCoords(10.7905, 78.7047)).toBe('Tiruchirappalli');
+    });
+  });
+
+  describe('Trusted Public Appearance Reporting & Publication Rules', () => {
+    it('accepts an announcement with a trusted source link and public venue', () => {
+      const valid = {
+        report_text: 'Chennai YMCA Grounds - Book Fair keynote speech https://thehindu.com/entertainment/art/chennai-book-fair',
+        show_public_attribution: true,
+        author_display_name: 'PressVolunteer',
+      };
+
+      const result = publicAppearanceSubmissionSchema.safeParse(valid);
+      expect(result.success).toBe(true);
+    });
+
+    it('rejects an announcement without any source link', () => {
+      const missingLink = {
+        report_text: 'Spotted at Chennai YMCA Grounds yesterday afternoon giving a speech.',
+      };
+
+      const result = publicAppearanceSubmissionSchema.safeParse(missingLink);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.issues[0]?.message).toContain('link to an intentionally announced public appearance is required');
+      }
+    });
+
+    it('rejects an announcement with an untrusted or suspicious link', () => {
+      const untrustedLink = {
+        report_text: 'Chennai Hall meeting announced at https://suspicious-tracker-blog.xyz/post/123',
+      };
+
+      const result = publicAppearanceSubmissionSchema.safeParse(untrustedLink);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.issues[0]?.message).toContain('trusted news publication');
+      }
+    });
+
+    it('rejects announcements containing private residence or stalking keywords', () => {
+      const stalkingAttempt = {
+        report_text: 'Saw him at his private residence apartment address https://thehindu.com/news',
+      };
+
+      const result = publicAppearanceSubmissionSchema.safeParse(stalkingAttempt);
+      expect(result.success).toBe(false);
+    });
+
+    it('extracts source URL accurately from text', () => {
+      const text = 'Event announced in Madurai https://timesofindia.indiatimes.com/city/madurai - join us';
+      expect(extractSourceUrl(text)).toBe('https://timesofindia.indiatimes.com/city/madurai');
+    });
+
+    it('validates allowlisted domains and rejects unknown domains', () => {
+      expect(isTrustedSourceUrl('https://thehindu.com/news')).toBe(true);
+      expect(isTrustedSourceUrl('https://timesofindia.indiatimes.com/event')).toBe(true);
+      expect(isTrustedSourceUrl('https://dinamalar.com/event')).toBe(true);
+      expect(isTrustedSourceUrl('https://bookmyshow.com/chennai')).toBe(true);
+      expect(isTrustedSourceUrl('https://cinemaexpress.com/tamil')).toBe(true);
+      expect(isTrustedSourceUrl('https://untrusted-fake-news-tracker.net/leak')).toBe(false);
+    });
+
+    it('derives city and public venue from announcement text', () => {
+      const text = 'Coimbatore CODISSIA Trade Fair Complex cultural seminar https://thehindu.com';
+      const extraction = extractCityAndVenue(text);
+      expect(extraction.city).toBe('Coimbatore');
+      expect(extraction.coords.lat).toBeCloseTo(11.0168, 1);
+      expect(extraction.venue.toLowerCase()).toContain('codissia');
     });
   });
 });

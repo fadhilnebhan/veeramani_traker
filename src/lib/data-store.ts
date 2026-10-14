@@ -114,17 +114,24 @@ class MemoryDataStore {
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/(^-|-$)+/g, '') + `-${Date.now().toString(36)}`;
 
+    const status = (data as any).status || 'pending';
+    const isApproved = status === 'approved';
+
     const newEntry: TrackerEntry = {
       ...data,
       id,
       slug,
       is_fictional_confirmed: true,
-      status: 'pending',
-      city: data.district,
-      venue_name: data.landmark_name,
+      status,
+      city: data.district || (data as any).city,
+      venue_name: data.landmark_name || (data as any).venue_name,
       note: (data as any).note || data.description,
+      source_url: (data as any).source_url || null,
+      image_url: (data as any).image_url || null,
+      approved_by: isApproved ? 'system-allowlist' : undefined,
+      approved_at: isApproved ? new Date().toISOString() : undefined,
       author_id: userId || 'demo-user-1',
-      author_display_name: authorName || data.author_display_name || 'Anonymous Fan',
+      author_display_name: authorName || data.author_display_name || 'Anonymous Contributor',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };

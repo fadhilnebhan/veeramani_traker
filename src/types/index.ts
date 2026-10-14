@@ -42,10 +42,13 @@ export interface TrackerEntry {
   approved_at?: string | null;
   created_at: string;
   updated_at: string;
-  // Simplified report & compatibility fields
+  // Simplified report & public appearance fields
   note?: string;
   city?: string;
   venue_name?: string;
+  venue?: string;
+  source_url?: string | null;
+  image_url?: string | null;
 }
 
 // Backward-compatible alias for existing components

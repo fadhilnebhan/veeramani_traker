@@ -5,214 +5,125 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import {
-  Radio,
+  MapPin,
   PlusCircle,
-  ShieldCheck,
-  User,
   Menu,
   X,
-  ChevronDown,
   LogOut,
-  Activity
+  Search
 } from 'lucide-react';
 
 interface NavbarProps {
   onOpenReport?: () => void;
+  searchQuery?: string;
+  onSearchChange?: (query: string) => void;
 }
 
-export function Navbar({ onOpenReport }: NavbarProps = {}) {
+export function Navbar({ onOpenReport, searchQuery, onSearchChange }: NavbarProps = {}) {
   const pathname = usePathname();
   const { user, isDemoMode, loginAsDemoRole, signOut } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [roleDropdownOpen, setRoleDropdownOpen] = useState(false);
 
   const isModeratorOrAdmin = user?.role === 'moderator' || user?.role === 'admin';
 
   return (
     <header className="sticky top-0 z-40 w-full bg-[#19182B]/95 backdrop-blur-md border-b border-[#32304F]">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
-        {/* Brand Wordmark & Tracker Radar Indicator */}
-        <Link href="/" className="flex items-center gap-2.5 group">
-          <div className="relative w-9 h-9 rounded-xl bg-gradient-to-tr from-[#F5C542] to-[#F16F59] flex items-center justify-center text-[#19182B] shadow-md group-hover:scale-105 transition-transform">
-            <Radio className="w-5 h-5 stroke-[#19182B]" />
-            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-[#438567] border-2 border-[#19182B] animate-ping" />
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-2 sm:gap-4">
+        {/* Left: Small Original Wordmark */}
+        <Link href="/" className="flex items-center gap-2 group shrink-0">
+          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-gradient-to-tr from-[#F5C542] to-[#F16F59] flex items-center justify-center text-[#19182B] shadow-md group-hover:scale-105 transition-transform">
+            <MapPin className="w-4 h-4 fill-[#19182B] stroke-[#19182B]" />
           </div>
           <div className="flex flex-col">
-            <div className="flex items-center gap-1.5">
-              <span className="font-display font-black text-lg sm:text-xl tracking-tight text-[#FFF8E8]">
-                VEERAMANI <span className="text-[#F5C542]">TRACKER</span>
-              </span>
-            </div>
-            <div className="flex items-center gap-1.5 -mt-1 hidden sm:flex">
-              <span className="text-[9px] tracking-widest text-[#F16F59] font-mono font-bold uppercase">
-                PARODY RADAR
-              </span>
-              <span className="text-[9px] text-[#A5A2AD] font-mono">• 104.2 MHz DEMO SCAN</span>
-            </div>
+            <span className="font-display font-black text-sm sm:text-lg tracking-tight text-[#FFF8E8] leading-none">
+              VEERAMANI <span className="text-[#F5C542]">TRACKER</span>
+            </span>
           </div>
         </Link>
 
-        {/* Center Navigation Links (Desktop) */}
-        <nav className="hidden md:flex items-center gap-1.5">
-          <Link
-            href="/"
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wider transition-colors flex items-center gap-1.5 ${
-              pathname === '/'
-                ? 'bg-[#222038] text-[#F5C542] border border-[#32304F]'
-                : 'text-[#A5A2AD] hover:text-[#FFF8E8]'
-            }`}
-          >
-            <Activity className="w-3.5 h-3.5 text-[#F5C542]" />
-            <span>Radar Map</span>
-          </Link>
-
-          {isModeratorOrAdmin && (
-            <Link
-              href="/admin"
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wider transition-colors flex items-center gap-1 ${
-                pathname.startsWith('/admin')
-                  ? 'bg-[#7D263D] text-[#FFF8E8] border border-[#9B334E]'
-                  : 'text-[#A5A2AD] hover:text-[#FFF8E8]'
-              }`}
-            >
-              <ShieldCheck className="w-3.5 h-3.5 text-[#F5C542]" />
-              <span>Mod Desk</span>
-            </Link>
-          )}
-
-          <Link
-            href="/account"
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wider transition-colors flex items-center gap-1 ${
-              pathname.startsWith('/account')
-                ? 'bg-[#222038] text-[#F5C542] border border-[#32304F]'
-                : 'text-[#A5A2AD] hover:text-[#FFF8E8]'
-            }`}
-          >
-            <User className="w-3.5 h-3.5" />
-            <span>My Transmissions</span>
-          </Link>
-        </nav>
-
-        {/* Right Action Controls */}
-        <div className="flex items-center gap-2.5">
-          {/* Demo Persona Switcher */}
-          {isDemoMode && (
-            <div className="relative hidden sm:block">
-              <button
-                onClick={() => setRoleDropdownOpen(!roleDropdownOpen)}
-                className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-mono rounded-full bg-[#222038] border border-[#F5C542]/40 text-[#F5C542] hover:bg-[#32304F] transition-colors cursor-pointer"
-                title="Switch demo persona"
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-[#79d4a8] animate-pulse" />
-                <span>Persona: {user?.role || 'Visitor'}</span>
-                <ChevronDown className="w-3 h-3" />
-              </button>
-
-              {roleDropdownOpen && (
-                <div className="absolute right-0 mt-2 w-48 bg-[#222038] border border-[#32304F] rounded-xl shadow-xl py-1 z-50 text-xs">
-                  <div className="px-3 py-1 text-[10px] text-[#A5A2AD] uppercase font-bold tracking-wider border-b border-[#32304F]">
-                    Switch Demo Persona
-                  </div>
-                  <button
-                    onClick={() => {
-                      loginAsDemoRole('user');
-                      setRoleDropdownOpen(false);
-                    }}
-                    className="w-full text-left px-3 py-2 text-[#FFF8E8] hover:bg-[#32304F] flex items-center justify-between cursor-pointer"
-                  >
-                    <span>Fan Contributor</span>
-                    {user?.role === 'user' && <span className="text-[#F5C542]">✓</span>}
-                  </button>
-                  <button
-                    onClick={() => {
-                      loginAsDemoRole('moderator');
-                      setRoleDropdownOpen(false);
-                    }}
-                    className="w-full text-left px-3 py-2 text-[#FFF8E8] hover:bg-[#32304F] flex items-center justify-between cursor-pointer"
-                  >
-                    <span>Lead Moderator</span>
-                    {user?.role === 'moderator' && <span className="text-[#F5C542]">✓</span>}
-                  </button>
-                </div>
+        {/* Center: Compact Map Search Control */}
+        {onSearchChange !== undefined && (
+          <div className="flex-1 max-w-xs sm:max-w-sm mx-2">
+            <div className="relative w-full">
+              <Search className="w-3.5 h-3.5 text-[#A5A2AD] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                type="text"
+                value={searchQuery || ''}
+                onChange={(e) => onSearchChange(e.target.value)}
+                placeholder="Search city, venue or note..."
+                className="w-full pl-8 pr-3 py-1.5 sm:py-2 text-xs bg-[#151424] border border-[#32304F] hover:border-[#F5C542]/50 focus:border-[#F5C542] rounded-xl text-[#FFF8E8] placeholder:text-[#A5A2AD]/60 focus:outline-none transition-colors"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => onSearchChange('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#A5A2AD] hover:text-[#FFF8E8] text-xs p-0.5"
+                  aria-label="Clear search"
+                >
+                  <X className="w-3 h-3" />
+                </button>
               )}
             </div>
-          )}
+          </div>
+        )}
 
-          {/* Report / Transmit CTA */}
+        {/* Right Action Controls */}
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Prominent Turmeric-Yellow Report Button */}
           {onOpenReport ? (
             <button
               onClick={onOpenReport}
-              className="flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-gradient-to-r from-[#F5C542] to-[#D4A325] hover:from-[#FCE8A1] hover:to-[#F5C542] text-[#19182B] font-bold text-xs sm:text-sm rounded-xl shadow-[0_2px_12px_rgba(245,197,66,0.3)] transition-all cursor-pointer"
+              className="flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 bg-gradient-to-r from-[#F5C542] to-[#D4A325] hover:from-[#FCE8A1] hover:to-[#F5C542] text-[#19182B] font-display font-black text-xs sm:text-sm rounded-xl shadow-[0_2px_12px_rgba(245,197,66,0.3)] transition-all cursor-pointer"
             >
               <PlusCircle className="w-4 h-4 text-[#19182B]" />
-              <span className="hidden xs:inline">Report Signal</span>
-              <span className="xs:hidden">Report</span>
+              <span className="hidden xs:inline">Report</span>
+              <span className="hidden md:inline">Appearance</span>
             </button>
           ) : (
             <Link
               href="/submit"
-              className="flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-gradient-to-r from-[#F5C542] to-[#D4A325] hover:from-[#FCE8A1] hover:to-[#F5C542] text-[#19182B] font-bold text-xs sm:text-sm rounded-xl shadow-[0_2px_12px_rgba(245,197,66,0.3)] transition-all cursor-pointer"
+              className="flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 bg-gradient-to-r from-[#F5C542] to-[#D4A325] hover:from-[#FCE8A1] hover:to-[#F5C542] text-[#19182B] font-display font-black text-xs sm:text-sm rounded-xl shadow-[0_2px_12px_rgba(245,197,66,0.3)] transition-all cursor-pointer"
             >
               <PlusCircle className="w-4 h-4 text-[#19182B]" />
-              <span className="hidden xs:inline">Report Signal</span>
-              <span className="xs:hidden">Report</span>
+              <span className="hidden xs:inline">Report</span>
+              <span className="hidden md:inline">Appearance</span>
             </Link>
           )}
 
-          {/* Mobile hamburger button */}
+          {/* Small Menu for Account functionality */}
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="md:hidden p-2 text-[#FFF8E8] hover:text-[#F5C542] rounded-lg bg-[#222038] border border-[#32304F]"
+            className="p-1.5 sm:p-2 text-[#FFF8E8] hover:text-[#F5C542] rounded-xl bg-[#222038] border border-[#32304F] transition-colors cursor-pointer"
             aria-label="Toggle menu"
           >
-            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            {mobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
           </button>
         </div>
       </div>
 
-      {/* Mobile Drawer */}
+      {/* Account & Navigation Dropdown Menu */}
       {mobileMenuOpen && (
-        <div className="md:hidden bg-[#1E1D33] border-b border-[#32304F] px-4 py-3 space-y-2">
+        <div className="bg-[#1E1D33] border-b border-[#32304F] px-4 py-3 space-y-2 animate-in slide-in-from-top-2 duration-150 shadow-2xl">
           <Link
             href="/"
             onClick={() => setMobileMenuOpen(false)}
-            className={`block px-3 py-2 rounded-lg text-sm font-semibold ${
+            className={`block px-3 py-2 rounded-lg text-xs font-semibold ${
               pathname === '/' ? 'bg-[#222038] text-[#F5C542]' : 'text-[#FFF8E8]'
             }`}
           >
-            Parody Radar Map
+            Map View
           </Link>
-          {onOpenReport ? (
-            <button
-              onClick={() => {
-                setMobileMenuOpen(false);
-                onOpenReport();
-              }}
-              className="w-full text-left block px-3 py-2 rounded-lg text-sm font-semibold text-[#F5C542] bg-[#F5C542]/10 border border-[#F5C542]/20 cursor-pointer"
-            >
-              + Transmit Parody Signal
-            </button>
-          ) : (
-            <Link
-              href="/submit"
-              onClick={() => setMobileMenuOpen(false)}
-              className="block px-3 py-2 rounded-lg text-sm font-semibold text-[#F5C542] bg-[#F5C542]/10 border border-[#F5C542]/20"
-            >
-              + Transmit Parody Signal
-            </Link>
-          )}
           <Link
             href="/account"
             onClick={() => setMobileMenuOpen(false)}
-            className="block px-3 py-2 rounded-lg text-sm font-semibold text-[#FFF8E8]"
+            className="block px-3 py-2 rounded-lg text-xs font-semibold text-[#FFF8E8] hover:bg-[#222038]"
           >
-            My Transmissions
+            My Submissions
           </Link>
           {isModeratorOrAdmin && (
             <Link
               href="/admin"
               onClick={() => setMobileMenuOpen(false)}
-              className="block px-3 py-2 rounded-lg text-sm font-semibold text-[#F16F59] bg-[#7D263D]/20 border border-[#7D263D]/30"
+              className="block px-3 py-2 rounded-lg text-xs font-semibold text-[#F16F59] bg-[#7D263D]/20 border border-[#7D263D]/30"
             >
               Moderation Desk
             </Link>
@@ -220,7 +131,7 @@ export function Navbar({ onOpenReport }: NavbarProps = {}) {
 
           {isDemoMode && (
             <div className="pt-2 border-t border-[#32304F]">
-              <span className="text-xs text-[#A5A2AD] block mb-1">Demo Persona:</span>
+              <span className="text-[10px] text-[#A5A2AD] block mb-1">Demo Persona:</span>
               <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={() => {

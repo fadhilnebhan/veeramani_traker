@@ -3,9 +3,8 @@
 import React, { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { TrackerEntry, SIGNAL_CATEGORIES } from '@/types';
-import { Radio, Share2, ExternalLink, Sparkles, AlertTriangle, Activity } from 'lucide-react';
-import Link from 'next/link';
+import { TrackerEntry } from '@/types';
+import { MapPin, ExternalLink, Share2, User, ShieldCheck, Check } from 'lucide-react';
 
 interface InteractiveMapProps {
   events: TrackerEntry[];
@@ -14,11 +13,10 @@ interface InteractiveMapProps {
   tileUrl?: string;
 }
 
-// Center of Tamil Nadu (approx Trichy region)
+// Center of Tamil Nadu (Trichy region)
 const TAMIL_NADU_CENTER: [number, number] = [10.8505, 78.6856];
 const DEFAULT_ZOOM = 7.3;
 
-// Component to fly to selected marker
 function MapViewUpdater({ selectedEvent }: { selectedEvent: TrackerEntry | null }) {
   const map = useMap();
 
@@ -33,38 +31,46 @@ function MapViewUpdater({ selectedEvent }: { selectedEvent: TrackerEntry | null 
   return null;
 }
 
-function createParodyRadarPin(entry: TrackerEntry, isSelected: boolean) {
-  const cat = SIGNAL_CATEGORIES[entry.category] || { color: '#F5C542' };
-  const pinColor = isSelected ? '#F5C542' : cat.color;
-  const pulseRing = `
-    <span class="absolute -inset-2 rounded-full border-2 border-[${pinColor}] animate-ping opacity-60 pointer-events-none"></span>
-    <span class="absolute -inset-4 rounded-full border border-[${pinColor}]/30 animate-pulse pointer-events-none"></span>
-  `;
+function formatDate(iso?: string): string {
+  if (!iso) return '';
+  try {
+    const d = new Date(iso);
+    return d.toLocaleDateString('en-IN', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+  } catch {
+    return '';
+  }
+}
+
+function createLocationPin(isSelected: boolean) {
+  const pulseRing = isSelected
+    ? `<span class="absolute -inset-2 rounded-full border-2 border-[#F5C542] animate-ping opacity-75 pointer-events-none"></span>`
+    : `<span class="absolute -inset-1 rounded-full border border-[#F5C542]/40 animate-pulse pointer-events-none"></span>`;
 
   const html = `
     <div class="relative flex flex-col items-center cursor-pointer transition-transform duration-200 ${
       isSelected ? 'scale-125 z-50' : 'hover:scale-115'
     }">
       ${pulseRing}
-      <div class="relative w-9 h-9 rounded-2xl border-2 border-[#19182B] flex items-center justify-center text-[#19182B] font-black shadow-[0_4px_16px_rgba(0,0,0,0.5)]" style="background: radial-gradient(circle, ${pinColor} 40%, #19182B 150%);">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#19182B" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="2" fill="#19182B"/>
-          <path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/>
+      <div class="relative w-8 h-8 rounded-full border-2 border-[#19182B] flex items-center justify-center text-[#19182B] font-bold shadow-[0_4px_16px_rgba(0,0,0,0.6)]" style="background: radial-gradient(circle, #F5C542 60%, #D4A325 100%);">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="#19182B" stroke="#19182B" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/>
+          <circle cx="12" cy="10" r="3" fill="#F5C542"/>
         </svg>
-        <span class="absolute -top-1 -right-1 px-1 py-0.2 bg-[#19182B] border border-[${pinColor}] text-[8px] font-mono font-bold text-[${pinColor}] rounded">
-          ${entry.frequency_mhz || 104.2}
-        </span>
       </div>
-      <div style="border-top-color: ${pinColor};" class="w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-t-[7px] -mt-0.5"></div>
+      <div class="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-t-[6px] border-t-[#D4A325] -mt-0.5"></div>
     </div>
   `;
 
   return L.divIcon({
     html,
-    className: 'custom-radar-pin',
-    iconSize: [36, 42],
-    iconAnchor: [18, 42],
-    popupAnchor: [0, -42],
+    className: 'custom-location-pin',
+    iconSize: [32, 38],
+    iconAnchor: [16, 38],
+    popupAnchor: [0, -38],
   });
 }
 
@@ -82,8 +88,8 @@ export default function InteractiveMap({
     if (navigator.share) {
       try {
         await navigator.share({
-          title: `${entry.title} - Veeramani Tracker Parody`,
-          text: `Check out this fictional parody radar ping in ${entry.district}: ${entry.title}`,
+          title: `${entry.title} - Veeramani Tracker`,
+          text: `Public appearance announcement in ${entry.district}: ${entry.title}`,
           url: shareUrl,
         });
         return;
@@ -98,14 +104,12 @@ export default function InteractiveMap({
 
   return (
     <div className="relative w-full h-full min-h-[440px] rounded-2xl overflow-hidden border border-[#32304F] bg-[#151424]">
-      {/* Top Overlay HUD Bar */}
+      {/* Top Announcement Counter HUD */}
       <div className="absolute top-3 left-3 z-10 pointer-events-none hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#19182B]/90 backdrop-blur-md border border-[#32304F] text-xs shadow-lg">
-        <Radio className="w-3.5 h-3.5 text-[#F5C542] animate-pulse" />
-        <span className="font-mono text-[#F5C542] font-bold">104.2 MHz</span>
-        <span className="text-[#A5A2AD]">•</span>
-        <span className="text-[#FFF8E8] font-medium">{events.length} Parody Signals Active</span>
+        <MapPin className="w-3.5 h-3.5 text-[#F5C542]" />
+        <span className="text-[#FFF8E8] font-semibold">{events.length} Public Announcements</span>
         <span className="text-[10px] uppercase font-bold text-[#438567] bg-[#438567]/20 px-1.5 py-0.5 rounded border border-[#438567]/40">
-          SIMULATED PINGS
+          VERIFIED
         </span>
       </div>
 
@@ -126,12 +130,10 @@ export default function InteractiveMap({
 
         {events.map((entry) => {
           const isSelected = selectedEvent?.id === entry.id;
-          const icon = createParodyRadarPin(entry, isSelected);
-          const catMeta = SIGNAL_CATEGORIES[entry.category] || {
-            label: entry.category,
-            color: '#F5C542',
-            tamil: 'நையாண்டி',
-          };
+          const icon = createLocationPin(isSelected);
+          const venueDisplay = entry.venue_name || entry.landmark_name || entry.district;
+          const pubDate = formatDate(entry.approved_at || entry.created_at);
+          const sourceLink = entry.source_url || (entry.note?.match(/https?:\/\/[^\s]+/)?.[0]);
 
           return (
             <Marker
@@ -143,23 +145,30 @@ export default function InteractiveMap({
               }}
             >
               <Popup className="custom-popup" closeButton={false}>
-                <div className="p-3.5 max-w-[300px] text-[#FFF8E8] bg-[#1E1D33] rounded-xl border border-[#32304F] shadow-2xl">
-                  {/* Category Header */}
-                  <div className="flex items-center justify-between gap-1 mb-2">
-                    <span
-                      style={{
-                        color: catMeta.color,
-                        borderColor: `${catMeta.color}40`,
-                        backgroundColor: `${catMeta.color}15`,
-                      }}
-                      className="px-2 py-0.5 text-[10px] uppercase font-bold tracking-wider rounded border"
-                    >
-                      {catMeta.label}
+                <div className="p-3.5 max-w-[290px] text-[#FFF8E8] bg-[#1E1D33] rounded-xl border border-[#32304F] shadow-2xl">
+                  {/* Optional Image */}
+                  {(entry.image_url || entry.media_path) && (
+                    <div className="w-full h-24 rounded-lg overflow-hidden mb-2 bg-[#151424]">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={entry.image_url || entry.media_path || ''}
+                        alt={entry.title}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  )}
+
+                  {/* Header Badge & Date */}
+                  <div className="flex items-center justify-between gap-1 mb-1.5">
+                    <span className="px-2 py-0.5 text-[9px] uppercase font-bold tracking-wider rounded bg-[#438567]/20 text-[#79d4a8] border border-[#438567]/30 flex items-center gap-1">
+                      <ShieldCheck className="w-3 h-3 text-[#79d4a8]" />
+                      Public Announcement
                     </span>
-                    <span className="flex items-center gap-1 text-[10px] text-[#F16F59] font-mono">
-                      <Sparkles className="w-3 h-3 text-[#F16F59]" />
-                      SIMULATED PING
-                    </span>
+                    {pubDate && (
+                      <span className="text-[10px] text-[#A5A2AD] font-mono">
+                        {pubDate}
+                      </span>
+                    )}
                   </div>
 
                   {/* Title */}
@@ -167,62 +176,54 @@ export default function InteractiveMap({
                     {entry.title}
                   </h3>
 
-                  {/* Landmark & District */}
-                  <p className="text-xs text-[#A5A2AD] mb-2 flex items-center gap-1">
-                    <Activity className="w-3 h-3 text-[#F5C542] shrink-0" />
-                    <span>{entry.landmark_name}, {entry.district}</span>
+                  {/* Venue & City */}
+                  <p className="text-xs text-[#F5C542] mb-2 flex items-center gap-1 font-medium">
+                    <MapPin className="w-3 h-3 text-[#F16F59] shrink-0" />
+                    <span>{venueDisplay}, {entry.district}</span>
                   </p>
 
-                  {/* Approved Parody Note */}
-                  <div className="bg-[#151424] p-2 rounded-lg border border-[#32304F] mb-2">
-                    <span className="text-[9px] font-mono uppercase tracking-wider text-[#F5C542] block mb-0.5">
-                      Approved Parody Note:
-                    </span>
-                    <p className="text-xs text-[#FFF8E8] italic leading-snug">
-                      &ldquo;{entry.note || entry.description}&rdquo;
-                    </p>
-                  </div>
+                  {/* Note / Description */}
+                  <p className="text-xs text-[#C5C2CE] line-clamp-3 leading-relaxed bg-[#151424] p-2 rounded-lg border border-[#32304F] mb-2">
+                    {entry.note || entry.description}
+                  </p>
 
-                  {/* Signal Strength & Frequency Readout */}
-                  <div className="flex items-center justify-between text-[11px] text-[#A5A2AD] font-mono border-t border-[#32304F] pt-2 mb-2">
-                    <div className="flex items-center gap-1">
-                      <Radio className="w-3 h-3 text-[#F5C542]" />
-                      <span>{entry.frequency_mhz || 104.2} MHz</span>
+                  {/* Submitter Name if opted in */}
+                  {entry.author_display_name && (
+                    <div className="text-[10px] text-[#A5A2AD] flex items-center gap-1 mb-2">
+                      <User className="w-3 h-3" />
+                      <span>Reported by {entry.author_display_name}</span>
                     </div>
-                    <div className="flex items-center gap-1 text-[#79d4a8]">
-                      <span>Intensity: {entry.signal_strength || 85}%</span>
-                    </div>
-                  </div>
+                  )}
 
-                  {/* Buttons */}
-                  <div className="flex items-center gap-1.5 pt-1">
-                    <Link
-                      href={`/event/${entry.id}`}
-                      className="flex-1 py-1.5 px-2 bg-[#F5C542] hover:bg-[#D4A325] text-[#19182B] font-bold text-xs rounded-lg text-center transition-colors flex items-center justify-center gap-1"
-                    >
-                      <span>Signal Dossier</span>
-                      <ExternalLink className="w-3 h-3" />
-                    </Link>
+                  {/* Actions & Public Source Link */}
+                  <div className="flex items-center gap-1.5 pt-1 border-t border-[#32304F]/60">
+                    {sourceLink ? (
+                      <a
+                        href={sourceLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-1 py-1.5 px-2 bg-[#F5C542] hover:bg-[#D4A325] text-[#19182B] font-bold text-xs rounded-lg text-center transition-colors flex items-center justify-center gap-1"
+                      >
+                        <span>View Source</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    ) : (
+                      <div className="flex-1 text-[10px] text-[#A5A2AD] text-center">
+                        Verified Public Event
+                      </div>
+                    )}
 
                     <button
                       onClick={(e) => handleShare(e, entry)}
-                      title="Share Parody Signal"
-                      className="p-1.5 bg-[#32304F] hover:bg-[#F16F59] text-[#FFF8E8] rounded-lg transition-colors cursor-pointer"
+                      title="Share Announcement"
+                      className="p-1.5 bg-[#32304F] hover:bg-[#F5C542] hover:text-[#19182B] text-[#FFF8E8] rounded-lg transition-colors cursor-pointer"
                     >
-                      <Share2 className="w-3.5 h-3.5" />
+                      {copiedId === entry.id ? (
+                        <Check className="w-3.5 h-3.5 text-[#79d4a8]" />
+                      ) : (
+                        <Share2 className="w-3.5 h-3.5" />
+                      )}
                     </button>
-                  </div>
-
-                  {copiedId === entry.id && (
-                    <p className="text-[10px] text-center text-[#79d4a8] mt-1 font-mono">
-                      Parody signal link copied!
-                    </p>
-                  )}
-
-                  {/* Anti-stalking parody disclaimer */}
-                  <div className="mt-2 pt-1 border-t border-[#32304F]/60 flex items-center gap-1 text-[9px] text-[#A5A2AD]">
-                    <AlertTriangle className="w-3 h-3 text-[#F16F59] shrink-0" />
-                    <span>Fictional demonstration. Zero personal tracking.</span>
                   </div>
                 </div>
               </Popup>

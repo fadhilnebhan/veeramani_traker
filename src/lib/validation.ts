@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { extractSourceUrl, isTrustedSourceUrl } from './trusted-sources';
 
 const FORBIDDEN_PRIVATE_KEYWORDS = [
   'house',
@@ -108,6 +109,31 @@ export const simpleReportSchema = z.object({
 });
 
 export type SimpleReportFormValues = z.infer<typeof simpleReportSchema>;
+
+// Trusted Public Appearance announcement schema (one multiline input)
+export const publicAppearanceSubmissionSchema = z.object({
+  report_text: z
+    .string()
+    .trim()
+    .min(10, 'Please provide the city/venue, short note, and announcement link (min 10 characters).')
+    .max(500, 'Report text cannot exceed 500 characters.')
+    .refine((val) => !containsForbiddenKeywords(val), {
+      message: 'Submissions must only be intentionally announced public appearances. Private whereabouts, hotel rooms, residences, and unverified tracking are strictly forbidden.',
+    })
+    .refine((val) => extractSourceUrl(val) !== null, {
+      message: 'A link to an intentionally announced public appearance is required for publication.',
+    })
+    .refine((val) => {
+      const url = extractSourceUrl(val);
+      return url ? isTrustedSourceUrl(url) : false;
+    }, {
+      message: 'The announcement link must be from a trusted news publication, official portal, or verified event platform.',
+    }),
+  show_public_attribution: z.boolean().default(false),
+  author_display_name: z.string().max(50).optional().or(z.literal('')),
+});
+
+export type PublicAppearanceFormValues = z.infer<typeof publicAppearanceSubmissionSchema>;
 
 export function getDistrictFromCoords(lat: number, lng: number): string {
   const districts = [
