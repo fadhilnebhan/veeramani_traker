@@ -143,9 +143,16 @@ h1, h2, h3, h4, .font-display {
 }
 
 /* Custom Marker CSS styling */
-.custom-map-pin {
-  background: transparent;
-  border: none;
+.custom-map-pin,
+.custom-location-pin {
+  background: transparent !important;
+  border: none !important;
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
+
+.custom-location-pin.pin-selected {
+  z-index: 1000 !important;
 }
 
 /* Scrollbar customization */

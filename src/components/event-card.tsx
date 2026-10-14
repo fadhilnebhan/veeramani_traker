@@ -79,8 +79,8 @@ export function EventCard({
       } ${compact ? 'p-3' : 'p-4 sm:p-5'}`}
     >
       <div>
-        {/* Optional Approved Announcement Image */}
-        {(event.image_url || event.media_path) && (
+        {/* Optional Approved Announcement Image (only displayed when report is eligible for publication) */}
+        {event.status === 'approved' && (event.image_url || event.media_path) && (
           <div className="w-full h-36 rounded-xl overflow-hidden mb-3 bg-[#151424]">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img

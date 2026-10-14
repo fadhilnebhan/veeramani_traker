@@ -3,7 +3,8 @@ import {
   trackerSubmissionSchema,
   simpleReportSchema,
   publicAppearanceSubmissionSchema,
-  getDistrictFromCoords,
+  isWithinCoverageBounds,
+  getHumanReadableAreaLabel,
   sanitizeText,
 } from '@/lib/validation';
 import { extractSourceUrl, isTrustedSourceUrl, extractCityAndVenue } from '@/lib/trusted-sources';
@@ -129,7 +130,7 @@ export async function POST(request: NextRequest) {
     let publishImmediately = false;
 
     if (body.report_text !== undefined) {
-      // New Spidey-Tracker style Public Appearance single-input workflow
+      // Public Appearance announcement workflow
       const parseResult = publicAppearanceSubmissionSchema.safeParse(body);
       if (!parseResult.success) {
         return NextResponse.json(
@@ -159,28 +160,55 @@ export async function POST(request: NextRequest) {
       const extraction = extractCityAndVenue(rawText);
       publishImmediately = true;
 
-      // Extract a clean headline (up to 60 chars) or use venue + city
+      // Extract a clean headline (up to 80 chars) or use venue + city
       const textWithoutUrl = rawText.replace(sourceUrl, '').trim();
+      const cityTitle = extraction.city ? `${extraction.city} Public Appearance Announcement` : 'Public Appearance Announcement';
       const title = textWithoutUrl.length > 5 && textWithoutUrl.length <= 80
         ? textWithoutUrl
-        : `${extraction.city} Public Appearance Announcement`;
+        : cityTitle;
+
+      // Handle coordinates
+      let lat = 10.7905;
+      let lng = 78.7047;
+      let district = 'Central Tamil Nadu';
+
+      if (valid.latitude !== undefined && valid.longitude !== undefined) {
+        if (!isWithinCoverageBounds(valid.latitude, valid.longitude)) {
+          return NextResponse.json(
+            {
+              error: `Submitted coordinates (${valid.latitude}, ${valid.longitude}) are outside the supported Tamil Nadu coverage area (8.0°–14.5° N, 76.0°–81.0° E). Preset substitutions are not permitted.`,
+            },
+            { status: 400 }
+          );
+        }
+        lat = valid.latitude;
+        lng = valid.longitude;
+        district = getHumanReadableAreaLabel(lat, lng);
+      } else if (extraction.coords) {
+        lat = extraction.coords.lat;
+        lng = extraction.coords.lng;
+        district = extraction.city || 'Central Tamil Nadu';
+      }
+
+      const mediaPath = valid.media_path || valid.image_url || null;
 
       sanitizedData = {
         title: sanitizeText(title),
         description: cleanText,
         note: cleanText,
         category: 'parody_frequency',
-        district: extraction.city,
-        city: extraction.city,
+        district: sanitizeText(district),
+        city: sanitizeText(district),
         landmark_name: extraction.venue,
         venue_name: extraction.venue,
-        latitude: extraction.coords.lat,
-        longitude: extraction.coords.lng,
+        latitude: lat,
+        longitude: lng,
         signal_strength: 95,
         frequency_mhz: 104.2,
         is_fictional_confirmed: true,
         source_url: sourceUrl,
-        media_path: null,
+        media_path: mediaPath,
+        image_url: mediaPath,
         status: 'approved',
         author_display_name: valid.show_public_attribution && valid.author_display_name
           ? sanitizeText(valid.author_display_name)
@@ -192,7 +220,7 @@ export async function POST(request: NextRequest) {
       if (!parseResult.success) {
         return NextResponse.json(
           {
-            error: 'Validation failed',
+            error: parseResult.error.issues[0]?.message || 'Validation failed for report note.',
             details: parseResult.error.flatten().fieldErrors,
           },
           { status: 400 }
@@ -201,10 +229,42 @@ export async function POST(request: NextRequest) {
 
       const validSimple = parseResult.data;
       const cleanNote = sanitizeText(validSimple.note);
-      const district = validSimple.district || getDistrictFromCoords(validSimple.latitude, validSimple.longitude);
+      const extraction = extractCityAndVenue(cleanNote);
+
+      // Handle optional location
+      let lat = 10.7905; // Central Tamil Nadu fallback if no location provided
+      let lng = 78.7047;
+      let district = 'Central Tamil Nadu';
+      let landmark = 'Central Tamil Nadu Sector';
+
+      if (validSimple.latitude !== undefined && validSimple.longitude !== undefined) {
+        if (!isWithinCoverageBounds(validSimple.latitude, validSimple.longitude)) {
+          return NextResponse.json(
+            {
+              error: `Submitted coordinates (${validSimple.latitude}, ${validSimple.longitude}) are outside the supported Tamil Nadu coverage area (8.0°–14.5° N, 76.0°–81.0° E). Preset substitutions are not permitted.`,
+            },
+            { status: 400 }
+          );
+        }
+        // Preserve exact coordinates
+        lat = validSimple.latitude;
+        lng = validSimple.longitude;
+        district = validSimple.district || validSimple.area_label || getHumanReadableAreaLabel(lat, lng);
+        landmark = validSimple.landmark_name || validSimple.location_name || getHumanReadableAreaLabel(lat, lng);
+      } else if (extraction.hasMatchedCity && extraction.coords) {
+        lat = extraction.coords.lat;
+        lng = extraction.coords.lng;
+        district = extraction.city || 'Central Tamil Nadu';
+        landmark = extraction.venue || `${district} Sector`;
+      } else {
+        landmark = extraction.venue || `${district} Sector`;
+      }
+
       const detectedUrl = extractSourceUrl(cleanNote);
       const isTrusted = detectedUrl ? isTrustedSourceUrl(detectedUrl) : false;
       publishImmediately = isTrusted;
+
+      const mediaPath = validSimple.media_path || validSimple.image_url || null;
 
       sanitizedData = {
         title: cleanNote.length > 50 ? cleanNote.substring(0, 47) + '...' : cleanNote,
@@ -213,17 +273,18 @@ export async function POST(request: NextRequest) {
         category: 'parody_frequency',
         district: sanitizeText(district),
         city: sanitizeText(district),
-        landmark_name: validSimple.landmark_name ? sanitizeText(validSimple.landmark_name) : 'Public Venue Sector',
-        venue_name: validSimple.landmark_name ? sanitizeText(validSimple.landmark_name) : 'Public Venue Sector',
-        latitude: validSimple.latitude,
-        longitude: validSimple.longitude,
-        signal_strength: 88,
+        landmark_name: sanitizeText(landmark),
+        venue_name: sanitizeText(landmark),
+        latitude: lat,
+        longitude: lng,
+        signal_strength: isTrusted ? 95 : 80,
         frequency_mhz: 104.2,
         is_fictional_confirmed: true,
         source_url: detectedUrl || null,
-        media_path: null,
+        media_path: mediaPath,
+        image_url: mediaPath,
         status: isTrusted ? 'approved' : 'pending',
-        author_display_name: 'Tracker Scout',
+        author_display_name: validSimple.author_display_name ? sanitizeText(validSimple.author_display_name) : 'Tracker Scout',
       };
     } else {
       // Full tracker submission workflow
@@ -239,6 +300,19 @@ export async function POST(request: NextRequest) {
       }
 
       const validData = parseResult.data;
+      if (validData.latitude !== undefined && validData.longitude !== undefined) {
+        if (!isWithinCoverageBounds(validData.latitude, validData.longitude)) {
+          return NextResponse.json(
+            {
+              error: `Submitted coordinates (${validData.latitude}, ${validData.longitude}) are outside the supported Tamil Nadu coverage area (8.0°–14.5° N, 76.0°–81.0° E). Preset substitutions are not permitted.`,
+            },
+            { status: 400 }
+          );
+        }
+      }
+
+      const mediaPath = validData.media_path ? sanitizeText(validData.media_path) : null;
+
       sanitizedData = {
         title: sanitizeText(validData.title),
         description: sanitizeText(validData.description),
@@ -254,7 +328,8 @@ export async function POST(request: NextRequest) {
         frequency_mhz: validData.frequency_mhz || 104.2,
         is_fictional_confirmed: true,
         source_url: (validData as any).source_url || null,
-        media_path: validData.media_path ? sanitizeText(validData.media_path) : null,
+        media_path: mediaPath,
+        image_url: mediaPath,
         author_display_name: validData.show_public_attribution && validData.author_display_name
           ? sanitizeText(validData.author_display_name)
           : null,
@@ -297,6 +372,9 @@ export async function POST(request: NextRequest) {
               entry: data,
               signal: data,
               published: publishImmediately,
+              is_demo_mode: false,
+              storage_type: 'supabase_postgres',
+              persistence_notice: 'Saved permanently to Supabase database.',
             },
             { status: 201 }
           );
@@ -316,12 +394,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         message: publishImmediately
-          ? 'Public appearance verified & published immediately to the map!'
+          ? 'Public appearance verified & published to demo map session!'
           : 'Submission received! Placed in review queue.',
         entry: createdEntry,
         signal: createdEntry,
         event: createdEntry,
         published: publishImmediately,
+        is_demo_mode: true,
+        storage_type: 'in_memory_demo',
+        persistence_notice:
+          'Running in local demo mode without Supabase credentials. Data is saved in memory for this session and will reset when server restarts.',
       },
       { status: 201 }
     );

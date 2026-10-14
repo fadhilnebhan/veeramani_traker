@@ -158,8 +158,8 @@ function SignalDetailContent({
 
         {/* Hero Card Container */}
         <div className="rounded-2xl bg-[#1E1D33] border border-[#32304F] overflow-hidden shadow-2xl">
-          {/* Header Image if available */}
-          {(entry.image_url || entry.media_path) && (
+          {/* Header Image if report is eligible for publication (approved) */}
+          {entry.status === 'approved' && (entry.image_url || entry.media_path) && (
             <div className="relative w-full h-64 sm:h-80 bg-[#151424]">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img

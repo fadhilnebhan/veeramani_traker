@@ -33,22 +33,40 @@ export default function HomePage() {
       const data = await res.json();
       const loaded: TrackerEntry[] = data.entries || data.events || [];
       setEntries(loaded);
-
-      // Keep selected entry in sync
-      if (selectedEntry) {
-        const updated = loaded.find((e) => e.id === selectedEntry.id);
-        if (updated) setSelectedEntry(updated);
-      }
     } catch (err: any) {
       setError(err.message || 'Failed to load tracker map pins');
     } finally {
       setLoading(false);
     }
-  }, [selectedEntry]);
+  }, []);
 
   useEffect(() => {
     fetchEntries();
   }, [fetchEntries]);
+
+  // Keep selectedEntry in sync with updated entries without re-triggering fetchEntries
+  useEffect(() => {
+    setSelectedEntry((current) => {
+      if (!current) return null;
+      return entries.find((e) => e.id === current.id) || current;
+    });
+  }, [entries]);
+
+  const handleCloseSelected = useCallback(() => {
+    setSelectedEntry(null);
+  }, []);
+
+  // Support pressing Escape to close any open detail panel or report modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setSelectedEntry(null);
+        setIsReportOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // Client-side search filtering across title, venue, city, note
   const filteredEntries = useMemo(() => {
@@ -105,45 +123,76 @@ export default function HomePage() {
 
             {/* Desktop Selected Pin Detail Card (Floating Side Panel) */}
             {selectedEntry && (
-              <div className="hidden md:block absolute top-4 right-4 z-20 w-96 max-h-[calc(100%-2rem)] overflow-y-auto animate-in fade-in slide-in-from-right-4 duration-200">
+              <aside
+                aria-label="Report details panel"
+                onClick={(e) => e.stopPropagation()}
+                onTouchStart={(e) => e.stopPropagation()}
+                onTouchMove={(e) => e.stopPropagation()}
+                onWheel={(e) => e.stopPropagation()}
+                className="hidden md:block absolute top-4 right-4 z-20 w-96 max-h-[calc(100%-2rem)] overflow-y-auto animate-in fade-in slide-in-from-right-4 duration-200"
+              >
                 <div className="relative">
+                  {/* Min 44x44px touch target close button with accessible label */}
                   <button
-                    onClick={() => setSelectedEntry(null)}
-                    className="absolute top-3 right-3 z-30 p-1.5 rounded-lg bg-[#151424]/80 text-[#A5A2AD] hover:text-[#FFF8E8] hover:bg-[#32304F] transition-colors cursor-pointer"
-                    aria-label="Close details"
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleCloseSelected();
+                    }}
+                    className="absolute top-3 right-3 z-30 min-w-[44px] min-h-[44px] w-11 h-11 flex items-center justify-center rounded-xl bg-[#151424]/95 hover:bg-[#32304F] text-[#A5A2AD] hover:text-[#FFF8E8] transition-colors cursor-pointer border border-[#32304F] shadow-lg pointer-events-auto focus:outline-none focus:ring-2 focus:ring-[#F5C542]"
+                    aria-label="Close report details"
+                    title="Close details (Esc)"
+                    data-testid="close-details-btn"
                   >
-                    <X className="w-4 h-4" />
+                    <X className="w-5 h-5 pointer-events-none" />
                   </button>
                   <EventCard
                     event={selectedEntry}
                     isSelected={true}
-                    onClose={() => setSelectedEntry(null)}
+                    onClose={handleCloseSelected}
                   />
                 </div>
-              </div>
+              </aside>
             )}
 
             {/* Mobile Bottom Sheet Drawer for Selected Pin */}
             {selectedEntry && (
-              <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#1E1D33] border-t-2 border-[#F5C542]/60 rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.8)] p-4 max-h-[80vh] overflow-y-auto animate-in slide-in-from-bottom duration-200">
-                {/* Drag / Close Handle */}
+              <aside
+                aria-label="Report details bottom sheet"
+                onClick={(e) => e.stopPropagation()}
+                onTouchStart={(e) => e.stopPropagation()}
+                onTouchMove={(e) => e.stopPropagation()}
+                onTouchEnd={(e) => e.stopPropagation()}
+                onWheel={(e) => e.stopPropagation()}
+                className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#1E1D33] border-t-2 border-[#F5C542]/60 rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.8)] p-4 max-h-[80vh] overflow-y-auto animate-in slide-in-from-bottom duration-200"
+              >
+                {/* Drag / Close Header */}
                 <div className="flex items-center justify-between pb-2 mb-2 border-b border-[#32304F]">
-                  <div className="w-12 h-1 bg-[#32304F] rounded-full mx-auto" />
+                  <div className="w-12 h-1.5 bg-[#32304F] rounded-full mx-auto" />
+                  {/* Min 44x44px touch target close button for mobile */}
                   <button
-                    onClick={() => setSelectedEntry(null)}
-                    className="p-1 rounded-lg text-[#A5A2AD] hover:text-[#FFF8E8] hover:bg-[#32304F] transition-colors cursor-pointer ml-auto"
-                    aria-label="Close bottom sheet"
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleCloseSelected();
+                    }}
+                    className="min-w-[44px] min-h-[44px] w-11 h-11 flex items-center justify-center rounded-xl bg-[#222038] hover:bg-[#32304F] text-[#A5A2AD] hover:text-[#FFF8E8] transition-colors cursor-pointer ml-auto border border-[#32304F] pointer-events-auto focus:outline-none focus:ring-2 focus:ring-[#F5C542]"
+                    aria-label="Close report details"
+                    title="Close details"
+                    data-testid="close-details-mobile-btn"
                   >
-                    <X className="w-4 h-4" />
+                    <X className="w-5 h-5 pointer-events-none" />
                   </button>
                 </div>
                 <EventCard
                   event={selectedEntry}
                   compact={true}
                   isSelected={true}
-                  onClose={() => setSelectedEntry(null)}
+                  onClose={handleCloseSelected}
                 />
-              </div>
+              </aside>
             )}
 
             {/* Mobile Floating Report Button (Bottom-Right FAB) */}

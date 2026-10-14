@@ -4,6 +4,9 @@ import {
   simpleReportSchema,
   publicAppearanceSubmissionSchema,
   getDistrictFromCoords,
+  isWithinCoverageBounds,
+  getNeutralAreaLabel,
+  getHumanReadableAreaLabel,
   moderationActionSchema,
   containsForbiddenKeywords,
   sanitizeText,
@@ -184,9 +187,9 @@ describe('Parody Tracker Validation & Security Logic', () => {
       }
     });
 
-    it('rejects a note longer than 280 characters', () => {
+    it('rejects a note longer than 500 characters', () => {
       const longNote = {
-        note: 'A'.repeat(281),
+        note: 'A'.repeat(501),
         latitude: 13.0827,
         longitude: 80.2707,
         is_fictional_confirmed: true,
@@ -229,7 +232,7 @@ describe('Parody Tracker Validation & Security Logic', () => {
       }
     });
 
-    it('correctly maps coordinates to nearest Tamil Nadu district', () => {
+    it('correctly maps coordinates to nearest Tamil Nadu district within coverage', () => {
       // Chennai coordinates
       expect(getDistrictFromCoords(13.0827, 80.2707)).toBe('Chennai');
 
@@ -241,6 +244,42 @@ describe('Parody Tracker Validation & Security Logic', () => {
 
       // Tiruchirappalli coordinates
       expect(getDistrictFromCoords(10.7905, 78.7047)).toBe('Tiruchirappalli');
+    });
+
+    it('rejects coordinates outside Tamil Nadu coverage in getDistrictFromCoords without silent Chennai default', () => {
+      // London coordinates
+      expect(getDistrictFromCoords(51.5074, -0.1278)).toBe('Outside Coverage Area');
+      // New Delhi coordinates
+      expect(getDistrictFromCoords(28.6139, 77.2090)).toBe('Outside Coverage Area');
+      // Tokyo coordinates
+      expect(getDistrictFromCoords(35.6762, 139.6503)).toBe('Outside Coverage Area');
+    });
+
+    it('validates coverage bounds using isWithinCoverageBounds', () => {
+      expect(isWithinCoverageBounds(13.0827, 80.2707)).toBe(true); // Chennai
+      expect(isWithinCoverageBounds(8.0883, 77.5385)).toBe(true);  // Kanyakumari
+      expect(isWithinCoverageBounds(11.0168, 76.9558)).toBe(true); // Coimbatore
+      expect(isWithinCoverageBounds(51.5074, -0.1278)).toBe(false); // London
+      expect(isWithinCoverageBounds(28.6139, 77.2090)).toBe(false); // New Delhi
+      expect(isWithinCoverageBounds(NaN, NaN)).toBe(false);
+    });
+
+    it('generates a neutral approximate sector label preserving coordinates', () => {
+      const neutral = getNeutralAreaLabel(10.7905, 78.7047);
+      expect(neutral).toBe('Approx. Sector (10.79°N, 78.70°E)');
+
+      const neutralSouth = getNeutralAreaLabel(-10.50, -75.20);
+      expect(neutralSouth).toBe('Approx. Sector (10.50°S, 75.20°W)');
+    });
+
+    it('generates human-readable area labels without forcing unverified city names', () => {
+      // Near known city center (Chennai)
+      expect(getHumanReadableAreaLabel(13.0827, 80.2707)).toContain('Chennai Area');
+      // In Tamil Nadu bounds away from major city centers
+      const rural = getHumanReadableAreaLabel(9.50, 77.30);
+      expect(rural).toContain('Approx. Sector (9.50°N, 77.30°E)');
+      // Outside coverage
+      expect(getHumanReadableAreaLabel(51.5074, -0.1278)).toBe('Outside Coverage Area');
     });
   });
 
@@ -307,8 +346,88 @@ describe('Parody Tracker Validation & Security Logic', () => {
       const text = 'Coimbatore CODISSIA Trade Fair Complex cultural seminar https://thehindu.com';
       const extraction = extractCityAndVenue(text);
       expect(extraction.city).toBe('Coimbatore');
-      expect(extraction.coords.lat).toBeCloseTo(11.0168, 1);
+      expect(extraction.coords?.lat).toBeCloseTo(11.0168, 1);
       expect(extraction.venue.toLowerCase()).toContain('codissia');
+      expect(extraction.hasMatchedCity).toBe(true);
+    });
+
+    it('does NOT silently default to Chennai when no city is mentioned in announcement text', () => {
+      const text = 'Keynote speech at an auditorium https://thehindu.com/news';
+      const extraction = extractCityAndVenue(text);
+      expect(extraction.city).toBeNull();
+      expect(extraction.coords).toBeNull();
+      expect(extraction.hasMatchedCity).toBe(false);
+      expect(extraction.venue.toLowerCase()).toContain('auditorium');
+    });
+  });
+
+  describe('Optional Photo & Location Reporting Submissions', () => {
+    it('accepts a Note-only submission without photo or location', () => {
+      const noteOnly = {
+        note: 'Mysterious tea stall radio frequency oscillation heard in Trichy',
+        is_fictional_confirmed: true,
+      };
+
+      const result = simpleReportSchema.safeParse(noteOnly);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.note).toBe('Mysterious tea stall radio frequency oscillation heard in Trichy');
+        expect(result.data.latitude).toBeUndefined();
+        expect(result.data.longitude).toBeUndefined();
+        expect(result.data.media_path).toBeUndefined();
+      }
+    });
+
+    it('accepts a submission with an optional photo (media_path / image_url)', () => {
+      const withPhoto = {
+        note: 'Fictional parody poster seen near Central Station',
+        media_path: 'signals/signal-1710000000-abc123.jpg',
+        image_url: 'https://example.com/signals/signal-1710000000-abc123.jpg',
+        is_fictional_confirmed: true,
+      };
+
+      const result = simpleReportSchema.safeParse(withPhoto);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.media_path).toBe('signals/signal-1710000000-abc123.jpg');
+        expect(result.data.image_url).toBe('https://example.com/signals/signal-1710000000-abc123.jpg');
+      }
+    });
+
+    it('accepts a submission with an optional browser location', () => {
+      const withLocation = {
+        note: 'Parody cinema dialogue echo reverberating near Madurai',
+        latitude: 9.9252,
+        longitude: 78.1198,
+        is_fictional_confirmed: true,
+      };
+
+      const result = simpleReportSchema.safeParse(withLocation);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.latitude).toBe(9.9252);
+        expect(result.data.longitude).toBe(78.1198);
+        expect(result.data.media_path).toBeUndefined();
+      }
+    });
+
+    it('accepts a submission with BOTH optional photo and location', () => {
+      const withBoth = {
+        note: 'Promotional cinema cutout resonance in Coimbatore',
+        latitude: 11.0168,
+        longitude: 76.9558,
+        media_path: 'signals/coimbatore-poster.png',
+        image_url: 'https://example.com/signals/coimbatore-poster.png',
+        is_fictional_confirmed: true,
+      };
+
+      const result = simpleReportSchema.safeParse(withBoth);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.latitude).toBe(11.0168);
+        expect(result.data.longitude).toBe(76.9558);
+        expect(result.data.media_path).toBe('signals/coimbatore-poster.png');
+      }
     });
   });
 });

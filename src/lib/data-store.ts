@@ -127,7 +127,8 @@ class MemoryDataStore {
       venue_name: data.landmark_name || (data as any).venue_name,
       note: (data as any).note || data.description,
       source_url: (data as any).source_url || null,
-      image_url: (data as any).image_url || null,
+      image_url: (data as any).image_url || data.media_path || null,
+      media_path: data.media_path || (data as any).image_url || null,
       approved_by: isApproved ? 'system-allowlist' : undefined,
       approved_at: isApproved ? new Date().toISOString() : undefined,
       author_id: userId || 'demo-user-1',
@@ -233,6 +234,7 @@ class MemoryDataStore {
 
   public resetToDefault(): void {
     this.entries = [...INITIAL_SAMPLE_SIGNALS];
+    this.rateLimitMap.clear();
   }
 }
 

@@ -75,9 +75,10 @@ export function isTrustedSourceUrl(urlStr: string): boolean {
 }
 
 export interface CityVenueExtraction {
-  city: string;
+  city: string | null;
   venue: string;
-  coords: { lat: number; lng: number };
+  coords: { lat: number; lng: number } | null;
+  hasMatchedCity: boolean;
 }
 
 export const TN_CITIES_COORDS: Record<string, { lat: number; lng: number }> = {
@@ -123,8 +124,8 @@ const CITY_ALIASES: Record<string, string> = {
 export function extractCityAndVenue(text: string): CityVenueExtraction {
   const lower = text.toLowerCase();
 
-  // 1. Detect city
-  let matchedCity = 'Chennai';
+  // 1. Detect city (never silently default to Chennai)
+  let matchedCity: string | null = null;
   for (const [alias, canonical] of Object.entries(CITY_ALIASES)) {
     // Word boundary search
     const regex = new RegExp(`\\b${alias}\\b`, 'i');
@@ -155,7 +156,7 @@ export function extractCityAndVenue(text: string): CityVenueExtraction {
     'memorial',
   ];
 
-  let detectedVenue = `${matchedCity} Public Venue`;
+  let detectedVenue = matchedCity ? `${matchedCity} Public Venue` : 'Public Venue';
 
   // Look for sentences or phrases containing a venue keyword
   const words = text.replace(/https?:\/\/[^\s]+/g, '').split(/[,.\n;]+/);
@@ -167,11 +168,12 @@ export function extractCityAndVenue(text: string): CityVenueExtraction {
     }
   }
 
-  const coords = TN_CITIES_COORDS[matchedCity] || TN_CITIES_COORDS['Chennai'];
+  const coords = matchedCity ? TN_CITIES_COORDS[matchedCity] || null : null;
 
   return {
     city: matchedCity,
     venue: detectedVenue,
     coords,
+    hasMatchedCity: matchedCity !== null,
   };
 }
